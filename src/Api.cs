@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Runtime.InteropServices;
 
 namespace nColor
@@ -10,10 +10,28 @@ namespace nColor
 
         [DllImport("kernel32.dll", SetLastError = true)]
         static extern IntPtr GetStdHandle(int nStdHandle);
+
         [DllImport("kernel32.dll")]
         static extern bool GetConsoleMode(IntPtr hConsoleHandle, out int lpMode);
+
         [DllImport("kernel32.dll")]
         static extern bool SetConsoleMode(IntPtr hConsoleHandle, int dwMode);
+
+        [DllImport("ntdll.dll", SetLastError = true)]
+        private static extern int RtlGetVersion(ref OSVERSIONINFOEX versionInfo);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct OSVERSIONINFOEX
+        {
+            public int dwOSVersionInfoSize;
+            public int dwMajorVersion;
+            public int dwMinorVersion;
+            public int dwBuildNumber;
+            public int dwPlatformId;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+            public string szCSDVersion;
+        }
+
         private static bool enabled = false;
 
         private static void EnableVirtualTerminalProcessing()
@@ -52,10 +70,15 @@ namespace nColor
                 if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                     return "Windows10NotDetected";
 
-                Version osVersion = Environment.OSVersion.Version;
+                OSVERSIONINFOEX versionInfo = new OSVERSIONINFOEX();
+                versionInfo.dwOSVersionInfoSize = Marshal.SizeOf(typeof(OSVERSIONINFOEX));
 
-                if (osVersion.Major >= 10)
-                    return "Windows10Detected";
+                int status = RtlGetVersion(ref versionInfo);
+                if (status == 0) // STATUS_SUCCESS
+                {
+                    if (versionInfo.dwMajorVersion >= 10)
+                        return "Windows10Detected";
+                }
 
                 return "Windows10NotDetected";
             }
